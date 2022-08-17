@@ -41,7 +41,7 @@ merged_df = pd.concat([test_df['id'], test_df['product_code'], numerical_df, cat
 #we will impute nan values wrt each chunk of test_df corresponding to a given product code
 
 #define empty dataframe which we will append each imputed chunk_df to
-processed_df = pd.DataFrame()
+imputed_df = pd.DataFrame()
 
 #iterate over all distinct product codes in the training dataframe
 for prod_code in merged_df['product_code'].unique().tolist():
@@ -54,24 +54,42 @@ for prod_code in merged_df['product_code'].unique().tolist():
     temp_imputed_df = pd.DataFrame(imputer.fit_transform(chunk_df.drop(columns=['product_code', 'id'])), columns=chunk_df.drop(columns=['product_code', 'id']).columns)
     temp_imputed_df['product_code'] = [prod_code] * len(chunk_df)
     temp_imputed_df['id'] = chunk_df['id'].tolist()
-    processed_df = processed_df.append(temp_imputed_df)
-
-processed_df.to_csv('/home/gunnar/playgroundProject/data/processed_test.csv', index = False)
+    imputed_df = imputed_df.append(temp_imputed_df)
 
 
 
-# #Multilayer Perceptron (MLP) ##############################################################
-# mlp_model = MLPClassifier(max_iter=300, activation='relu', solver='adam', alpha=0.1, learning_rate='constant', hidden_layer_sizes=(300,))
+imputed_df = imputed_df.drop(columns=['attribute_1_material_7'])
 
-# #fit the model on the training data and predict the desired probabilities for the test data
-# y_pred = mlp_model.fit(x_train, y_train.values.ravel()).predict_proba(x_test)[:,1]
-
-# unique_customer_id_list = test_df['customer_ID'].tolist()
-# submission_df = pd.DataFrame({'customer_ID':unique_customer_id_list, 'prediction':y_pred})
-# submission_df.to_csv('/wsu/home/fy/fy73/fy7392/amex/data/submission.csv', index=False)
+#update the new merged dataframe
+merged_df = imputed_df
 
 
+#get list of numerical feature column names
+num_col_list = []
+non_num_col_list = ['id', 'product_code', 'failure']
+for col1 in imputed_df.columns.tolist():
+    count = 0
+    for col2 in non_num_col_list:
+        if col1 != col2:
+            count += 1
+    if count == 3:
+        num_col_list.append(col1)
 
+
+
+
+#construct a new feature for every pair of numerical features that represents the sum of a given pair of features
+num_feature_pairs_list = [(a, b) for idx, a in enumerate(num_col_list) for b in num_col_list[idx + 1:]]
+
+for pair in num_feature_pairs_list:
+    merged_df[str(pair[0] + '+' + pair[1])] = merged_df[pair[0]] + merged_df[pair[1]]
+
+for pair in num_feature_pairs_list:
+    merged_df[str(pair[0] + '-' + pair[1])] = merged_df[pair[0]] - merged_df[pair[1]]
+
+
+
+merged_df.to_csv('/home/gunnar/playgroundProject/data/processed_test.csv', index = False)
 
 
 
